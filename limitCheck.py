@@ -1,0 +1,208 @@
+#!/usr/bin/python
+# poll the AWS Trusted Advisor for resource limits and posts an SNS message to a topic with AZ and resource information
+# Import the SDK
+import boto3
+import uuid
+import json
+import ConfigParser
+from boto3 import Session
+
+#Sets up the process to read the config file
+config = ConfigParser.ConfigParser()
+config_dict = {}
+regions = []
+config.read("default.config")
+options = config.options('Settings')
+for option in options:
+	config_dict[option] = config.get('Settings', option)
+
+sns_arn = config_dict['arn']
+regions = config_dict['regions'].split(',')
+
+ta_message = ''
+
+# SNS ARN. This should be replaced with the name of the topic ARN that you want to publish
+# Configure the regions that you want to poll in the config file
+
+
+def publishSNS(sns_message, sns_arn):
+
+	# publish message to the master SNS topic
+	sns_client = boto3.client('sns', region_name='us-west-2')
+
+	print "Publishing message to SNS topic..."
+	sns_client.publish(
+		TargetArn=sns_arn,
+		Message=sns_message
+		)
+	return;
+
+def trustedAlert(warn_list):
+	#make the message that we send to the SNS topic
+	ta_message = '\nRegion  -  Resource:'
+	ta_message += '\n------------------------'
+	for rs in warn_list:
+		ta_message += '\n' + rs 
+	ta_message += '\n'
+	return ta_message;
+
+
+def ec2Alert(limit, usage, rgn):
+
+	# Complie the SNS message for EC2 alerts
+	ec2_message = "\nEC2 Limits"
+	ec2_message += "\nRegion: " + rgn
+	ec2_message += '\n------------------------'
+	ec2_message += "\nInstance Limit: "
+	ec2_message += limit 
+	ec2_message += "\nActual Usage: "
+	ec2_message += str(usage)
+	ec2_message += "\n"
+	print ec2_message
+	return ec2_message;
+
+
+
+def rdsAlert(limit, usage, rgn):
+
+	# Complie the SNS message for rds alerts
+	rds_message = "RDS Limits"
+	rds_message += "\nRegion: " + rgn
+	rds_message += '\n------------------------'
+	rds_message += "\nInstance Limit: "
+	rds_message += limit 
+	rds_message += "\nActual Usage: "
+	rds_message += usage
+	rds_message += "\n"
+	print rds_message
+	return rds_message;
+
+
+
+def cloudformationAlert(limit, usage, rgn):
+
+	# Complie the SNS message for cloudformation alerts
+	cfn_message = "Cloucformation Limits"
+	cfn_message += "\nRegion: " + rgn
+	cfn_message += '\n------------------------'
+	cfn_message += "\nStack Limit: "
+	cfn_message += str(limit) 
+	cfn_message += "\nActual Usage: "
+	cfn_message += str(usage)
+	cfn_message += "\n"
+	print cfn_message
+	return cfn_message;
+
+
+def assume_role(accountID, rgn):
+	
+	ec2_message = ""
+	cfn_message = ""
+	rds_message = ""
+
+	client = boto3.client('sts')
+	response = client.assume_role(RoleArn='arn:aws:iam::'+accountID+':role/AWSLimitsRole',RoleSessionName='AWSLimits')
+	
+	session = Session(		
+		aws_access_key_id=response['Credentials']['AccessKeyId'], 
+		aws_secret_access_key=response['Credentials']['SecretAccessKey'], 
+		aws_session_token=response['Credentials']['SessionToken'], 
+		region_name=rgn
+	)
+
+	##############
+	# call trusted advisor for the limit checks
+	##############
+	support_client = session.client('support', region_name='us-east-1')
+	response = support_client.describe_trusted_advisor_check_result(
+		checkId='eW7HH0l7J9',
+		language='en'
+	)
+	print "Contacting Trusted Advisor..."
+
+	# parse the json and find flagged resources that are in warning mode
+	flag_list = response['result']['flaggedResources']
+	warn_list=[]
+	for fr in flag_list:
+		if fr['metadata'][5] != "Green":
+			warn_list.append(fr['metadata'][0]+' - '+fr['metadata'][2])
+	if not warn_list:
+		print "TA all green"
+	else:
+		global ta_message 
+		ta_message = trustedAlert(warn_list)
+
+
+	###############
+	#call EC2 limits for rgn
+        ###############
+	ec2_client = session.client('ec2', region_name=rgn)
+        response = ec2_client.describe_account_attributes()
+        attribute_list = response['AccountAttributes']
+        for att in attribute_list:
+                if att['AttributeName'] == 'max-instances':
+                        limit_of_instances = att['AttributeValues'][0]['AttributeValue']
+
+        response = ec2_client.describe_instances()
+        instance_list = response['Reservations']
+        num_of_instances = len(instance_list)
+
+	#calculate if limit is within threshold
+	if (float(num_of_instances) / float(limit_of_instances)  >= 0.8):			
+		ec2_message = ec2Alert(limit_of_instances, num_of_instances, rgn)
+		print ec2_message
+
+	###############
+	#cfn resource limit
+	###############	
+	cfn_client = session.client('cloudformation', region_name=rgn)
+        stack_limit = cfn_client.describe_account_limits()
+	if  stack_limit['AccountLimits'][0]['Name'] == 'StackLimit':
+                limit_of_stacks = stack_limit['AccountLimits'][0]['Value']
+	
+        stacks = cfn_client.describe_stacks()
+        stack_list = stacks['Stacks']
+        num_of_stacks = len(stack_list)
+
+	if (float(num_of_stacks) / float(limit_of_stacks) >= 0.8):			
+		cfn_message = cloudformationAlert(limit_of_stacks, num_of_stacks, rgn)
+		print cfn_message
+
+	################
+	#call RDS Limits for rgn
+	################
+	rds_client = session.client('rds', region_name=rgn)
+        instance_limit = rds_client.describe_account_attributes()
+        service_limit = instance_limit['AccountQuotas'][0]['Max']
+        service_usage = instance_limit['AccountQuotas'][0]['Used']	
+	
+	if (float(service_usage) / float(service_limit) >= 0.8):			
+		rds_message = rdsAlert(service_limit, service_usage, rgn)
+		print rds_message
+
+
+	print "Assumed session for "+accountID+" in region "+rgn
+ 
+	rgn_message = ec2_message + cfn_message + rds_message
+
+	return rgn_message;
+	
+def lambda_handler(event, context):
+
+	accountID = event['account_ID']
+	print 'accountID: ' + accountID
+	header_message = "AWS account "+accountID+" has limits approaching their upper threshold. Please take action accordingly.\n"
+	sns_message = "" 
+
+	for rgn in regions:
+		sns_message += assume_role(accountID, rgn)
+		
+	if sns_message && ta_message == "":
+		print "All systems green!"
+	else:
+		publishSNS(header_message + ta_message + sns_message, sns_arn);
+
+	return accountID;	
+
+
+
