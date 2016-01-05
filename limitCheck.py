@@ -197,7 +197,7 @@ def lambda_handler(event, context):
 	for rgn in regions:
 		sns_message += assume_role(accountID, rgn)
 		
-	if sns_message && ta_message == "":
+	if sns_message == "":
 		print "All systems green!"
 	else:
 		publishSNS(header_message + ta_message + sns_message, sns_arn);
