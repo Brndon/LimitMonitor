@@ -142,10 +142,16 @@ def assume_role(accountID, rgn):
         for att in attribute_list:
                 if att['AttributeName'] == 'max-instances':
                         limit_of_instances = att['AttributeValues'][0]['AttributeValue']
+			print"num of limit: "+limit_of_instances
 
         response = ec2_client.describe_instances()
-        instance_list = response['Reservations']
-        num_of_instances = len(instance_list)
+        reservation_list = response['Reservations']
+	num_of_instances = 0
+	for rsrv in reservation_list:
+		instance_list = rsrv['Instances']
+		num_of_instances += len(instance_list)
+
+	print "num of instances: "+str(num_of_instances)
 
 	#calculate if limit is within threshold
 	if (float(num_of_instances) / float(limit_of_instances)  >= 0.8):			
@@ -189,13 +195,13 @@ def assume_role(accountID, rgn):
 	
 def lambda_handler(event, context):
 
-	accountID = event['account_ID']
-	print 'accountID: ' + accountID
-	header_message = "AWS account "+accountID+" has limits approaching their upper threshold. Please take action accordingly.\n"
+	accountID = event
+	print 'accountID: ' + str(accountID)
+	header_message = "AWS account "+str(accountID)+" has limits approaching their upper threshold. Please take action accordingly.\n"
 	sns_message = "" 
 
 	for rgn in regions:
-		sns_message += assume_role(accountID, rgn)
+		sns_message += assume_role(str(accountID), rgn)
 		
 	if sns_message == "":
 		print "All systems green!"
