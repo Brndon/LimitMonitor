@@ -7,28 +7,12 @@ import json
 import ConfigParser
 from boto3 import Session
 
-#Sets up the process to read the config file
-config = ConfigParser.ConfigParser()
-config_dict = {}
-regions = []
-config.read("default.config")
-options = config.options('Settings')
-for option in options:
-	config_dict[option] = config.get('Settings', option)
-
-sns_arn = config_dict['arn']
-regions = config_dict['regions'].split(',')
-
 ta_message = ''
 
-# SNS ARN. This should be replaced with the name of the topic ARN that you want to publish
-# Configure the regions that you want to poll in the config file
-
-
-def publishSNS(sns_message, sns_arn):
+def publishSNS(sns_message, sns_arn, rgn):
 
 	# publish message to the master SNS topic
-	sns_client = boto3.client('sns', region_name='us-west-2')
+	sns_client = boto3.client('sns', region_name=rgn)
 
 	print "Publishing message to SNS topic..."
 	sns_client.publish(
@@ -195,20 +179,17 @@ def assume_role(accountID, rgn):
 	
 def lambda_handler(event, context):
 
-	accountID = event
+	accountID = event['AccountId']
 	print 'accountID: ' + str(accountID)
 	header_message = "AWS account "+str(accountID)+" has limits approaching their upper threshold. Please take action accordingly.\n"
 	sns_message = "" 
 
-	for rgn in regions:
+	for rgn in event['RegionList']:
 		sns_message += assume_role(str(accountID), rgn)
 		
 	if sns_message == "":
 		print "All systems green!"
 	else:
-		publishSNS(header_message + ta_message + sns_message, sns_arn);
+		publishSNS(header_message + ta_message + sns_message, event['SNSArn'], event['Region']);
 
 	return accountID;	
-
-
-
