@@ -23,8 +23,9 @@ def publishSNS(sns_message, sns_arn, rgn):
 
 def trustedAlert(warn_list):
 	#make the message that we send to the SNS topic
-	ta_message = '\nRegion  -  Resource:'
-	ta_message += '\n------------------------'
+	
+	ta_message = ''
+	
 	for rs in warn_list:
 		ta_message += '\n' + rs 
 	ta_message += '\n'
@@ -66,7 +67,7 @@ def rdsAlert(limit, usage, rgn):
 def cloudformationAlert(limit, usage, rgn):
 
 	# Complie the SNS message for cloudformation alerts
-	cfn_message = "Cloucformation Limits"
+	cfn_message = "Cloudformation Limits"
 	cfn_message += "\nRegion: " + rgn
 	cfn_message += '\n------------------------'
 	cfn_message += "\nStack Limit: "
@@ -109,7 +110,7 @@ def assume_role(accountID, rgn):
 	warn_list=[]
 	for fr in flag_list:
 		if fr['metadata'][5] != "Green":
-			warn_list.append(fr['metadata'][0]+' - '+fr['metadata'][2])
+			warn_list.append(fr['metadata'][2]+'\n'+'Region: '+fr['metadata'][0]+'\n------------------------'+'\nResource Limit: '+fr['metadata'][3]+'\n'+'Resource Usage: '+fr['metadata'][4]+'\n')
 	if not warn_list:
 		print "TA all green"
 	else:
