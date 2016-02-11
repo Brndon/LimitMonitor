@@ -79,14 +79,14 @@ def cloudformationAlert(limit, usage, rgn):
 	return cfn_message;
 
 
-def assume_role(accountID, rgn):
+def assume_role(accountID, rgn, event):
 	
 	ec2_message = ""
 	cfn_message = ""
 	rds_message = ""
 
 	client = boto3.client('sts')
-	response = client.assume_role(RoleArn='arn:aws:iam::'+accountID+':role/AWSLimitsRole',RoleSessionName='AWSLimits')
+	response = client.assume_role(RoleArn='arn:aws:iam::'+accountID+':role/'+event['CheckRoleName'],RoleSessionName='AWSLimits')
 	
 	session = Session(		
 		aws_access_key_id=response['Credentials']['AccessKeyId'], 
@@ -186,7 +186,7 @@ def lambda_handler(event, context):
 	sns_message = "" 
 
 	for rgn in event['RegionList']:
-		sns_message += assume_role(str(accountID), rgn)
+		sns_message += assume_role(str(accountID), rgn, event)
 		
 	if sns_message == "":
 		print "All systems green!"
