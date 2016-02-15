@@ -46,6 +46,9 @@
 					"Protocol": "email"
 				}],
 				"TopicName": {"Ref": "SNSTopicName"}
+			},
+			"Metadata" : {
+				"Comment": "Create an SNS Topic to Publish Alerts to, subscribe e-mail parameter"
 			}
 		},
 		"MasterLambda": {
@@ -60,7 +63,10 @@
 				"Runtime": "python2.7",
 				"Timeout": "300"
 			},
-			"DependsOn": "LRole"
+			"DependsOn": "LRole",
+			"Metadata" : {
+				"Comment": "Create a Lambda Function which take a list of accounts and invoke a Lambda function for each accounts limit analysis"
+			}
 		},
 		"ChildLambda": {
 			"Type": "AWS::Lambda::Function",
@@ -74,20 +80,9 @@
 				"Runtime": "python2.7",
 				"Timeout": "300"
 			},
-			"DependsOn": "LRole"
-		},
-		"Schedule": {
-			"Type": "Custom::Schedule",
-			"Properties":{
-				"ServiceToken": {"Fn::GetAtt" : ["ConfigLambda", "Arn"]},
-				"Region": { "Ref": "AWS::Region" },
-				"AccountList": {"Ref": "AccountList"},
-				"RegionList": {"Ref": "RegionList"},
-				"MasterArn": {"Fn::GetAtt":["MasterLambda","Arn"]},
-				"ChildLambda": {"Ref" : "ChildLambda"},
-				"SNSTopic": {"Ref" : "SNSTopic"},
-				"CheckRoleName": {"Ref" : "CheckRoleName"},
-				"AccountNumber": {"Ref" : "AWS::AccountId"}
+			"DependsOn": "LRole",
+			"Metadata" : {
+				"Comment": "Create a Lambda Function which take an account and list of regions and scan for appaching limits and send an alert to the SNS topic"
 			}
 		},
 		"ConfigLambda": {
@@ -102,7 +97,29 @@
 				"Runtime": "python2.7",
 				"Timeout": "300"
 			},
-			"DependsOn": "LRole"
+			"DependsOn": "LRole",
+			"Metadata" : {
+				"Comment": "Create a Lambda Function which will take configuration details from the CFN parameters to configure the Child Lambda Role and schedule the Master Lambda"
+			}
+		},
+		"Schedule": {
+			"Type": "Custom::Schedule",
+			"Properties":{
+				"ServiceToken": {"Fn::GetAtt" : ["ConfigLambda", "Arn"]},
+				"Region": { "Ref": "AWS::Region" },
+				"AccountList": {"Ref": "AccountList"},
+				"RegionList": {"Ref": "RegionList"},
+				"MasterArn": {"Fn::GetAtt":["MasterLambda","Arn"]},
+				"ChildLambda": {"Ref" : "ChildLambda"},
+				"MasterLambda": {"Ref" : "MasterLambda"},
+				"SNSTopic": {"Ref" : "SNSTopic"},
+				"CheckRoleName": {"Ref" : "CheckRoleName"},
+				"AccountNumber": {"Ref" : "AWS::AccountId"}
+			},
+			"Metadata" : {
+				"Comment": "Invoke the Configuration Lambda Function with the specified parameters for setting up the rule and creating the role which the Child Lambda will assume",
+				"To Do": "The rule creation portion of this Lambda will be removed when CloudWatch Events is supported by CFN"
+			}
 		},
 		"LRole": {
 			"Type": "AWS::IAM::Role",
@@ -124,22 +141,28 @@
 						"Version": "2012-10-17",
 						"Statement": [{
 							"Effect": "Allow",
-							"Action": ["sts:AssumeRole","lambda:Invoke*","SNS:Publish","logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents", "events:*", "iam:CreateRole", "iam:AttachRolePolicy", "iam:PutRolePolicy"],
+							"Action": ["sts:AssumeRole","lambda:Invoke*","SNS:Publish","logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents", "events:*", "iam:CreateRole", "iam:AttachRolePolicy", "iam:PutRolePolicy", "lambda:AddPermission"],
 							"Resource": ["*"]
 						}]
 					}
 				}]
+			},	
+			"Metadata" : {
+				"Comment": "Create the invocation role for the Lambda functions to use",
+				"To Do": "Separate this into three roles to better comply with least privilege"
 			}
 		}
 	},
 	"Outputs": {
   		"CreateRole" : {
-  			"Description" : "Run this to create a role in each sub-account you want to monitor",
+  			"Description" : "Run this in each sub-account you wish to monitor to create a role for the primary account to assume",
   			"Value" : {
   				"Fn::Join": 
   				["", 
   					[
-  						"aws iam create-role --role-name AWSLimitsRole --assume-role-policy-document '{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\",\"Principal\": {\"AWS\": \"",
+  						"aws iam create-role --role-name ",
+  						{"Ref" : "CheckRoleName"},
+  						" --assume-role-policy-document '{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\",\"Principal\": {\"AWS\": \"",
   						{"Ref" : "AWS::AccountId"},
   						"\"},\"Action\": \"sts:AssumeRole\"}]}'"
   					]
@@ -152,7 +175,8 @@
   				"Fn::Join": 
   				["", 
   					[
-  						"aws iam attach-role-policy --policy-arn arn:aws:iam::aws:policy/ReadOnlyAccess --role-name AWSLimitsRole"
+  						"aws iam attach-role-policy --policy-arn arn:aws:iam::aws:policy/ReadOnlyAccess --role-name ",
+  						{"Ref" : "CheckRoleName"}
   					]
   				]
   			}
@@ -163,7 +187,8 @@
   				"Fn::Join": 
   				["", 
   					[
-  						"aws iam attach-role-policy --policy-arn arn:aws:iam::aws:policy/AWSSupportAccess --role-name AWSLimitsRole"
+  						"aws iam attach-role-policy --policy-arn arn:aws:iam::aws:policy/AWSSupportAccess --role-name ",
+  						{"Ref" : "CheckRoleName"}
   					]
   				]
   			}
