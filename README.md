@@ -1,6 +1,6 @@
-# LimitMonkey
+# LimitMonitor
 
-We have created a CloudFormation template that you can run to start receiving alerts with just a couple of clicks.  You can configure the Limits Monitor to alert you as you are approaching limits, all via Scheduled Lambda functions, so there is no additional infrastructure to monitor.  
+We have created a CloudFormation template that you can run to start receiving alerts with just a couple of clicks.  You can configure the LimitMonitor to alert you as you are approaching limits, all via Scheduled Lambda functions, so there is no additional infrastructure to monitor.  
 
 ## Basic Configuration
 
