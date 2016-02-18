@@ -141,7 +141,7 @@
 						"Version": "2012-10-17",
 						"Statement": [{
 							"Effect": "Allow",
-							"Action": ["sts:AssumeRole","lambda:Invoke*","SNS:Publish","logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents", "events:*", "iam:CreateRole", "iam:AttachRolePolicy", "iam:PutRolePolicy", "lambda:AddPermission"],
+							"Action": ["sts:AssumeRole","lambda:Invoke*","SNS:Publish","logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents", "events:*", "iam:CreateRole", "iam:AttachRolePolicy", "iam:PutRolePolicy", "lambda:AddPermission", "iam:DeleteRole", "iam:DetachRolePolicy", "iam:DeleteRolePolicy"],
 							"Resource": ["*"]
 						}]
 					}
@@ -189,6 +189,19 @@
   					[
   						"aws iam attach-role-policy --policy-arn arn:aws:iam::aws:policy/AWSSupportAccess --role-name ",
   						{"Ref" : "CheckRoleName"}
+  					]
+  				]
+  			}
+  		},
+  		"AttachPolicy3" : {
+  			"Description" : "Run this to give the role access to the Support API for TrustedAdvisor access",
+  			"Value" : {
+  				"Fn::Join": 
+  				["", 
+  					[
+  						"aws iam put-role-policy --role-name ",
+  						{"Ref" : "CheckRoleName"}, 
+  						" --policy-name CloudFormationDescribe --policy-document '{\"Version\": \"2012-10-17\",\"Statement\": [{\"Sid\": \"Stmt1455149881000\",\"Effect\": \"Allow\",\"Action\": [\"cloudformation:DescribeAccountLimits\"],\"Resource\": [\"*\"]}]}'"		
   					]
   				]
   			}
