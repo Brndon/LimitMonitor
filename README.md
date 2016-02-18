@@ -1,29 +1,12 @@
 # LimitMonkey
 
-Lambda application to periodically query Trusted Advisor for your AWS resource limits 
-and publish messages to an SNS topic as a proactive alarm. Think "Push over Pull" for AWS Limits.
-
-## Requirements
-
-This sample project depends on Boto3, the AWS SDK for Python, and requires
-Python 2.6 or 2.7. You can install Boto using pip:
-
-    pip install boto
+We have created a CloudFormation template that you can run to start receiving alerts with just a couple of clicks.  You can configure the Limits Monitor to alert you as you are approaching limits, all via Scheduled Lambda functions, so there is no additional infrastructure to monitor.  
 
 ## Basic Configuration
 
-You need to set up your AWS security credentials before the sample code is able
-to connect to AWS. You can do this by creating a file named "credentials" at ~/.aws/ 
-(C:\Users\USER_NAME\.aws\ for Windows users) and saving the following lines in the file:
+You will need to download the Lambda functions which are contained in a zip file, and place them in an S3 bucket in your account.
+The template will create three Lambda functions, a master function which will spawn a child function for each account it is checking, along with a configuration Lambda which will be used when launching the CloudFormation template to complete some final setup steps.
 
-    [default]
-    aws_access_key_id = <your access key id>
-    aws_secret_access_key = <your secret key>
-
-See the [Security Credentials](http://aws.amazon.com/security-credentials) page
-for more information on getting your keys. It's also possible to configure your
-credentials via other configuration files. See the [Boto Config documentation](http://boto.readthedocs.org/en/latest/boto_config_tut.html)
-for more information.
 
 ## License
 
