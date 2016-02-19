@@ -86,7 +86,8 @@ def assume_role(accountID, rgn, event):
 	rds_message = ""
 
 	client = boto3.client('sts')
-	response = client.assume_role(RoleArn='arn:aws:iam::'+accountID+':role/'+event['CheckRoleName'],RoleSessionName='AWSLimits')
+	response = client.assume_role(RoleArn='arn:aws:iam::'+accountID+':role/'+event['CheckRoleName'],
+		RoleSessionName='AWSLimits')
 	
 	session = Session(		
 		aws_access_key_id=response['Credentials']['AccessKeyId'], 
