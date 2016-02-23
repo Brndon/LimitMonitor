@@ -117,8 +117,7 @@
 				"AccountNumber": {"Ref" : "AWS::AccountId"}
 			},
 			"Metadata" : {
-				"Comment": "Invoke the Configuration Lambda Function with the specified parameters for setting up the rule and creating the role which the Child Lambda will assume",
-				"To Do": "The rule creation portion of this Lambda will be removed when CloudWatch Events is supported by CFN"
+				"Comment": "Invoke the Configuration Lambda Function with the specified parameters for setting up the rule and creating the role which the Child Lambda will assume"
 			}
 		},
 		"LRole": {
@@ -148,8 +147,7 @@
 				}]
 			},	
 			"Metadata" : {
-				"Comment": "Create the invocation role for the Lambda functions to use",
-				"To Do": "Separate this into three roles to better comply with least privilege"
+				"Comment": "Create the invocation role for the Lambda functions to use"
 			}
 		}
 	},
