@@ -121,7 +121,7 @@ def assume_role(accountID, rgn, event):
 
 	###############
 	#call EC2 limits for rgn
-        ###############
+	###############
 	ec2_client = session.client('ec2', region_name=rgn)
         response = ec2_client.describe_account_attributes()
         attribute_list = response['AccountAttributes']
@@ -189,7 +189,7 @@ def lambda_handler(event, context):
 	for rgn in event['RegionList']:
 		sns_message += assume_role(str(accountID), rgn, event)
 		
-	if sns_message == "":
+	if sns_message == "" and ta_message == "":
 		print "All systems green!"
 	else:
 		publishSNS(header_message + ta_message + sns_message, event['SNSArn'], event['Region']);
