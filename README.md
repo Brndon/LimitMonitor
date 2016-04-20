@@ -20,5 +20,5 @@ When you have configured your test event you can test the Master Lambda function
 ## License
 
 This sample application is distributed under the
-[Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).
+[Amazon Software License](https://aws.amazon.com/asl/).
 
