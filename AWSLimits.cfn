@@ -6,22 +6,24 @@
 			"Type": "String"
 		},
 		"S3Bucket": {
-			"Default": "examplebucket",
-			"Description": "Bucket where Lambda function is stored",
+			"Default": "your-bucket-here",
+			"Description": "Bucket in your account where Lambda function (limits.zip) is stored",
 			"Type": "String"
 		},
 		"S3Key": {
 			"Default": "limits.zip",
-			"Description": "S3 Key of Lambda Function Zip File (/path/to/file.zip)",
+			"Description": "S3 Key of Lambda Function Zip File (/path/to/limits.zip)",
 			"Type": "String"
 		},
 		"AccountList": {
-			"Description": "Comma Delimited List of Account Numbers to Scan for Limits",
-			"Type": "CommaDelimitedList"
+			"Default": "\"000000000000\",\"999999999999\"",
+			"Description": "Quote Encapsulated, Comma Delimited List of Account Numbers to Scan for Limits",
+			"Type": "String"
 		},
 		"RegionList": {
-			"Description": "Comma Delimited List of Regions to Scan for Limits",
-			"Type": "CommaDelimitedList"
+			"Default": "\"us-east-1\",\"us-west-2\"",
+			"Description": "Quote Encapsulated, Comma Delimited List of Regions to Scan for Limits",
+			"Type": "String"
 		},
 		"SNSTopicName": {
 			"Default": "LimitCheckSNS",
@@ -65,7 +67,7 @@
 			},
 			"DependsOn": "LRole",
 			"Metadata" : {
-				"Comment": "Create a Lambda Function which take a list of accounts and invoke a Lambda function for each accounts limit analysis"
+				"Comment": "Lambda Function which take a list of accounts and invoke a Lambda function for each accounts limit analysis"
 			}
 		},
 		"ChildLambda": {
@@ -82,7 +84,7 @@
 			},
 			"DependsOn": "LRole",
 			"Metadata" : {
-				"Comment": "Create a Lambda Function which take an account and list of regions and scan for appaching limits and send an alert to the SNS topic"
+				"Comment": "Lambda Function which take an account and list of regions and scan for approaching limits and send an alert to the SNS topic"
 			}
 		},
 		"ConfigLambda": {
@@ -99,25 +101,19 @@
 			},
 			"DependsOn": "LRole",
 			"Metadata" : {
-				"Comment": "Create a Lambda Function which will take configuration details from the CFN parameters to configure the Child Lambda Role and schedule the Master Lambda"
+				"Comment": "Lambda Function which will take create the role to be assumed by the Child Lambda and be called cross-account"
 			}
 		},
-		"Schedule": {
-			"Type": "Custom::Schedule",
+		"CheckRole": {
+			"Type": "Custom::CheckRole",
 			"Properties":{
 				"ServiceToken": {"Fn::GetAtt" : ["ConfigLambda", "Arn"]},
 				"Region": { "Ref": "AWS::Region" },
-				"AccountList": {"Ref": "AccountList"},
-				"RegionList": {"Ref": "RegionList"},
-				"MasterArn": {"Fn::GetAtt":["MasterLambda","Arn"]},
-				"ChildLambda": {"Ref" : "ChildLambda"},
-				"MasterLambda": {"Ref" : "MasterLambda"},
-				"SNSTopic": {"Ref" : "SNSTopic"},
 				"CheckRoleName": {"Ref" : "CheckRoleName"},
 				"AccountNumber": {"Ref" : "AWS::AccountId"}
 			},
 			"Metadata" : {
-				"Comment": "Invoke the Configuration Lambda Function with the specified parameters for setting up the rule and creating the role which the Child Lambda will assume"
+				"Comment": "Invoke the Configuration Lambda Function with the specified parameters for creating the role to assume"
 			}
 		},
 		"LRole": {
@@ -147,9 +143,50 @@
 				}]
 			},	
 			"Metadata" : {
-				"Comment": "Create the invocation role for the Lambda functions to use"
+				"Comment": "Invocation role for the Lambda functions to use"
 			}
-		}
+		},
+		"Rule":	{
+  			"Type" : "AWS::Events::Rule",
+  			"Properties" : {
+    			"ScheduleExpression" : "cron(* 0 * * ? *)",
+    			"State" : "ENABLED",
+    			"Targets" : [{
+    				"Arn": { "Fn::GetAtt" : ["MasterLambda", "Arn"] },
+    				"Id": "LimitsRule",
+    				"Input": {
+    					"Fn::Join":
+    					["",
+    						[
+    							"{\"CheckRoleName\":\"",
+    							{"Ref" : "CheckRoleName"},
+    							"\",\"Region\":\"",
+    							{ "Ref": "AWS::Region" },
+    							"\",\"AccountList\":[",
+    							{"Ref": "AccountList"},
+    							"],\"RegionList\":[",
+    							{"Ref": "RegionList"},
+    							"],\"ChildLambda\":\"",
+    							{"Ref" : "ChildLambda"},
+    							"\",\"SNSArn\":\"",
+    							{"Ref" : "SNSTopic"},
+    							"\"}"
+    						]
+    					]
+    				}
+    			}]
+  			},
+  			"DependsOn": "CheckRole"
+		},
+		"LambdaInvokePermission": {
+  			"Type": "AWS::Lambda::Permission",
+  			"Properties": {
+    			"FunctionName" : { "Fn::GetAtt" : ["MasterLambda", "Arn"] },
+    			"Action": "lambda:InvokeFunction",
+    			"Principal": "events.amazonaws.com",
+    			"SourceArn": { "Fn::GetAtt" : ["Rule", "Arn"] }
+  			}
+		}		
 	},
 	"Outputs": {
   		"CreateRole" : {
@@ -168,7 +205,7 @@
   			}
   		},
   		"AttachPolicy1" : {
-  			"Description" : "Run this to give the role read only access",
+  			"Description" : "Add Read Only Access",
   			"Value" : {
   				"Fn::Join": 
   				["", 
@@ -180,7 +217,7 @@
   			}
   		},
   		"AttachPolicy2" : {
-  			"Description" : "Run this to give the role access to the Support API for TrustedAdvisor access",
+  			"Description" : "Add Support API for TrustedAdvisor access",
   			"Value" : {
   				"Fn::Join": 
   				["", 
@@ -192,7 +229,7 @@
   			}
   		},
   		"AttachPolicy3" : {
-  			"Description" : "Run this to give the role access to the Support API for TrustedAdvisor access",
+  			"Description" : "Add Support API for TrustedAdvisor access",
   			"Value" : {
   				"Fn::Join": 
   				["", 

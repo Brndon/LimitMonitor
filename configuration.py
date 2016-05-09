@@ -12,15 +12,10 @@ def lambda_handler(event, context):
     
     # If the CloudFormation Stack is being deleted, delete the limits and roles created
     if event['RequestType'] == 'Delete':
-        try: # Remove targets and rules
-            eventsClient = boto3.client('events')
-            targetResponse = eventsClient.remove_targets(Rule='Limits',Ids=['Limits'])
-            ruleResponse = eventsClient.delete_rule(Name='Limits')
-        except:
-            print targetResponse
-            print ruleResponse
-            pass
-
+        detachpolicyresponsero = ''
+        detachpolicyresponsesupport = ''
+        deletepolicuresponse = ''
+        roledeleteresponse = ''
         try: # Remove IAM Role
             iamClient = boto3.client('iam')
             detachpolicyresponsero = iamClient.detach_role_policy(RoleName=event['ResourceProperties']['CheckRoleName'],PolicyArn='arn:aws:iam::aws:policy/ReadOnlyAccess')
@@ -42,24 +37,10 @@ def lambda_handler(event, context):
 
     # If the Cloudformation Stack is being created, create the 
     if event['RequestType'] == 'Create':
-        try: #Create Rule and Target, and give permission for target to run the Lambda function
-            lambdaClient = boto3.client('lambda')
-            eventsClient = boto3.client('events')
-            # Build Input String for Event JSON input
-            inputString = '{\"CheckRoleName\":\"'+event['ResourceProperties']['CheckRoleName']+'\",\"Region\":\"'+event['ResourceProperties']['Region']+'\",\"AccountList\":'+json.dumps(event['ResourceProperties']['AccountList'])+',\"RegionList\":'+json.dumps(event['ResourceProperties']['RegionList'])+',\"ChildLambda\":\"'+event['ResourceProperties']['ChildLambda']+'\",\"SNSArn\":\"'+event['ResourceProperties']['SNSTopic']+'\"}'
-            # Create rule to run every 24 hours
-            ruleResponse = eventsClient.put_rule(Name='Limits', ScheduleExpression='rate(24 hours)',State='ENABLED')
-            # Give the rule permission to invoke the Master Lambda
-            lambdaResponse = lambdaClient.add_permission(FunctionName=event['ResourceProperties']['MasterLambda'], StatementId='Limits', Action='lambda:InvokeFunction', Principal='events.amazonaws.com', SourceArn=ruleResponse['RuleArn'])
-            # Create target to have rule fire the Lambda function every 24 hours
-            targetResponse = eventsClient.put_targets(Rule='Limits',Targets=[{'Id':'Limits','Arn':event['ResourceProperties']['MasterArn'],'Input':inputString}])
-        except:
-            # Dump Response Data for troubleshooting
-            print json.dumps(ruleResponse)
-            print json.dumps(lambdaResponse)
-            print json.dumps(targetResponse)
-            pass
-
+        rolecreateresponse = ''
+        putpolicyresponsero = ''
+        putpolicyresponsesupport = ''
+        putpolicyresponsecfn = ''
         try: # Create IAM Role for Child Lambda to assume
             iamClient = boto3.client('iam')
             rolecreateresponse = iamClient.create_role(RoleName=event['ResourceProperties']['CheckRoleName'],AssumeRolePolicyDocument='{"Version": "2012-10-17","Statement": [{"Effect": "Allow","Principal": {"AWS": "'+event['ResourceProperties']['AccountNumber']+'"},"Action": "sts:AssumeRole"}]}')
