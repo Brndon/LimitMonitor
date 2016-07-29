@@ -1,3 +1,5 @@
+#***This repo has been deprecated and will no longer be updated. Please use https://github.com/awslabs/aws-limit-monitor for the latest project updates.***
+
 # LimitMonitor
 
 We have created a CloudFormation template that you can run to start receiving alerts with just a couple of clicks.  You can configure the LimitMonitor to alert you as you are approaching limits, all via Scheduled Lambda functions, so there is no additional infrastructure to monitor.  
